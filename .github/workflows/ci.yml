@@ -1,6 +1,5 @@
 name: Full-Stack CI/CD Pipeline
 
-# Trigger the workflow automatically on pushes to the main branch
 on:
   push:
     branches:
@@ -9,27 +8,29 @@ on:
 jobs:
   build-and-validate:
     name: Build Images & Validate K8s
-    # Use the latest Ubuntu virtual machine provided by GitHub
     runs-on: ubuntu-latest
 
     steps:
-      # Step 1: Download your repository code onto the runner
       - name: Checkout Code
         uses: actions/checkout@v4
 
-      # Step 2: Build the Go backend Docker image
       - name: Build Go Backend Image
-        # Make sure this path matches your Go folder name exactly
         run: docker build -t my-go-backend ./go-backend
 
-      # Step 3: Build the Next.js frontend Docker image
       - name: Build Next.js Frontend Image
-        # Make sure this path matches your Next.js folder name exactly
         run: docker build -t my-next-frontend ./my-next-frontend
 
-      # Step 4: Validate the Kubernetes manifest syntax
+      # ==========================================
+      # NEW: Spin up a temporary Minikube cluster
+      # ==========================================
+      - name: Start Minikube
+        uses: medyagh/setup-minikube@latest
+        # This action automatically installs Minikube, starts it, 
+        # and points the runner's kubectl context directly to it.
+
+      # ==========================================
+      # Now kubectl has a real API server to talk to!
+      # ==========================================
       - name: Validate Kubernetes YAML
-        # The --dry-run=client flag checks the YAML for structural errors 
-        # without needing an actual active Kubernetes cluster to connect to.
         run: |
           kubectl apply -f k8s-setup.yaml --dry-run=client
