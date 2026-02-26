@@ -1,0 +1,120 @@
+# ==========================================
+# 1. The Secret
+# ==========================================
+apiVersion: v1
+kind: Secret
+metadata:
+  name: backend-secret
+type: Opaque
+stringData:
+  API_KEY: supersecret123
+
+---
+# ==========================================
+# 2. Go Backend Deployment & ClusterIP Service
+# ==========================================
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: go-backend
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: go-backend
+  template:
+    metadata:
+      labels:
+        app: go-backend
+    spec:
+      containers:
+      - name: go-backend
+        image: my-go-backend:latest
+        imagePullPolicy: Never 
+        ports:
+        - containerPort: 8080
+        envFrom:
+        - secretRef:
+            name: backend-secret
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: go-backend-svc
+spec:
+  type: ClusterIP # Internal routing only
+  selector:
+    app: go-backend
+  ports:
+  - port: 8080
+    targetPort: 8080
+
+---
+# ==========================================
+# 3. Next.js Frontend Deployment & ClusterIP Service
+# ==========================================
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: next-frontend
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: next-frontend
+  template:
+    metadata:
+      labels:
+        app: next-frontend
+    spec:
+      containers:
+      - name: next-frontend
+        image: my-next-frontend:latest
+        imagePullPolicy: Never
+        ports:
+        - containerPort: 3000
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: next-frontend-svc
+spec:
+  type: ClusterIP # Internal routing only
+  selector:
+    app: next-frontend
+  ports:
+  - port: 3000
+    targetPort: 3000
+
+---
+# ==========================================
+# 4. Ingress Routing Rules
+# ==========================================
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: fullstack-ingress
+  annotations:
+    # This annotation tells NGINX to evaluate the paths as regular expressions
+    nginx.ingress.kubernetes.io/use-regex: "true"
+spec:
+  ingressClassName: nginx
+  rules:
+  - http:
+      paths:
+      # Route /api and anything after it to the Go backend
+      - path: /api(/|$)(.*)
+        pathType: ImplementationSpecific
+        backend:
+          service:
+            name: go-backend-svc
+            port:
+              number: 8080
+      # Route all other traffic to the Next.js frontend
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: next-frontend-svc
+            port:
+              number: 3000
