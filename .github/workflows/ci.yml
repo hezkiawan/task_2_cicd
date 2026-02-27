@@ -5,32 +5,81 @@ on:
     branches:
       - main
 
+# Grant the pipeline permission to push images to the GitHub Container Registry
+permissions:
+  contents: read
+  packages: write
+
 jobs:
-  build-and-validate:
-    name: Build Images & Validate K8s
+  build-test-deploy:
+    name: Build, Test, and Push
     runs-on: ubuntu-latest
 
     steps:
       - name: Checkout Code
         uses: actions/checkout@v4
 
-      - name: Build Go Backend Image
-        run: docker build -t my-go-backend ./go-backend
-
-      - name: Build Next.js Frontend Image
-        run: docker build -t my-next-frontend ./my-next-frontend
+      # ==========================================
+      # 1. Automated Testing (CI)
+      # ==========================================
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.22' # Ensure this matches your project's Go version
+          
+      - name: Run Go Unit Tests
+        run: |
+          cd go-backend
+          go test -v ./...
 
       # ==========================================
-      # NEW: Spin up a temporary Minikube cluster
+      # 2. Build Docker Images
+      # ==========================================
+      # Note: We build with :v3 here to match the k8s-setup.yaml in your repository
+      - name: Build Go Backend Image
+        run: docker build -t my-go-backend:v3 ./go-backend
+
+      - name: Build Next.js Frontend Image
+        run: docker build -t my-next-frontend:v3 ./my-next-frontend
+
+      # ==========================================
+      # 3. Simulate Kubernetes Deployment
       # ==========================================
       - name: Start Minikube
         uses: medyagh/setup-minikube@latest
-        # This action automatically installs Minikube, starts it, 
-        # and points the runner's kubectl context directly to it.
+
+      - name: Load Images into Minikube
+        run: |
+          minikube image load my-go-backend:v3
+          minikube image load my-next-frontend:v3
+
+      - name: Deploy to Minikube
+        run: kubectl apply -f k8s-setup.yaml
+
+      - name: Verify Deployment Success
+        run: |
+          kubectl rollout status deployment/go-backend --timeout=90s
+          kubectl rollout status deployment/next-frontend --timeout=90s
 
       # ==========================================
-      # Now kubectl has a real API server to talk to!
+      # 4. Continuous Delivery (CD) to GHCR
       # ==========================================
-      - name: Validate Kubernetes YAML
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Tag and Push Images to GHCR
         run: |
-          kubectl apply -f k8s-setup.yaml --dry-run=client
+          # Convert repository name to lowercase (GHCR requirement)
+          REPO=$(echo "${{ github.repository }}" | tr '[:upper:]' '[:lower:]')
+          
+          # Tag the local v3 images as 'latest' for the registry
+          docker tag my-go-backend:v3 ghcr.io/$REPO/go-backend:latest
+          docker tag my-next-frontend:v3 ghcr.io/$REPO/next-frontend:latest
+          
+          # Push to GitHub Container Registry
+          docker push ghcr.io/$REPO/go-backend:latest
+          docker push ghcr.io/$REPO/next-frontend:latest
