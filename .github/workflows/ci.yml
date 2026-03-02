@@ -58,9 +58,8 @@ jobs:
 
       - name: Verify Deployment Success
         run: |
-          kubectl rollout status deployment/go-backend --timeout=90s
-          kubectl rollout status deployment/next-frontend --timeout=90s
-
+          kubectl rollout status deployment/go-backend --timeout=120s
+          kubectl rollout status deployment/next-frontend --timeout=300s || (echo "Deployment failed! Fetching K8s logs..." && kubectl describe pods -l app=next-frontend && kubectl logs -l app=next-frontend --tail=100 && exit 1)
       # ==========================================
       # 4. Continuous Delivery (CD) to GHCR
       # ==========================================

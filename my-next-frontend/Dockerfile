@@ -32,5 +32,8 @@ COPY --from=builder /app/.next/static ./.next/static
 EXPOSE 3000
 ENV PORT=3000
 
+# Force Next.js to bind to all network interfaces inside the container
+ENV HOSTNAME="0.0.0.0"
+
 # Standalone builds generate a server.js file to run the app
 CMD ["node", "server.js"]
