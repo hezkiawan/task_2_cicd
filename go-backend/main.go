@@ -23,10 +23,10 @@ var (
 	nextID  = 1
 )
 
-// authMiddleware checks the Authorization header against the API_KEY env variable
+// authMiddleware
 func isAuthorized(r *http.Request) bool {
 	expectedKey := os.Getenv("API_KEY")
-	// If the environment variable isn't set, we shouldn't allow any authenticated requests
+
 	if expectedKey == "" {
 		return false
 	}

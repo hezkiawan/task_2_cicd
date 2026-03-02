@@ -69,7 +69,7 @@ spec:
     spec:
       containers:
       - name: next-frontend
-        image: my-next-frontend:v3
+        image: my-next-frontend:v4
         imagePullPolicy: Never
         ports:
         - containerPort: 3000

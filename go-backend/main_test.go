@@ -14,7 +14,7 @@ func TestGetWikiHandler(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	// 2. We create a ResponseRecorder (which satisfies http.ResponseWriter) to record the response.
+	// 2. ResponseRecorder (which satisfies http.ResponseWriter) to record the response.
 	rr := httptest.NewRecorder()
 
 	// 3. Call the handler function directly, passing in the recorder and request.
