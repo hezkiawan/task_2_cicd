@@ -37,10 +37,10 @@ jobs:
       # ==========================================
       # Note: We build with :v3 here to match the k8s-setup.yaml in your repository
       - name: Build Go Backend Image
-        run: docker build -t my-go-backend:v3 ./go-backend
+        run: docker build -t my-go-backend:v4 ./go-backend
 
       - name: Build Next.js Frontend Image
-        run: docker build -t my-next-frontend:v3 ./my-next-frontend
+        run: docker build -t my-next-frontend:v4 ./my-next-frontend
 
       # ==========================================
       # 3. Simulate Kubernetes Deployment
@@ -50,8 +50,8 @@ jobs:
 
       - name: Load Images into Minikube
         run: |
-          minikube image load my-go-backend:v3
-          minikube image load my-next-frontend:v3
+          minikube image load my-go-backend:v4
+          minikube image load my-next-frontend:v4
 
       - name: Deploy to Minikube
         run: kubectl apply -f k8s-setup.yaml
@@ -76,8 +76,8 @@ jobs:
           REPO=$(echo "${{ github.repository }}" | tr '[:upper:]' '[:lower:]')
           
           # Tag the local v3 images as 'latest' for the registry
-          docker tag my-go-backend:v3 ghcr.io/$REPO/go-backend:latest
-          docker tag my-next-frontend:v3 ghcr.io/$REPO/next-frontend:latest
+          docker tag my-go-backend:v4 ghcr.io/$REPO/go-backend:latest
+          docker tag my-next-frontend:v4 ghcr.io/$REPO/next-frontend:latest
           
           # Push to GitHub Container Registry
           docker push ghcr.io/$REPO/go-backend:latest
