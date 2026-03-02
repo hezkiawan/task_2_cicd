@@ -25,7 +25,7 @@ jobs:
       - name: Set up Go
         uses: actions/setup-go@v5
         with:
-          go-version: '1.22' # Ensure this matches your project's Go version
+          go-version: '1.22'
           
       - name: Run Go Unit Tests
         run: |
@@ -33,14 +33,13 @@ jobs:
           go test -v ./...
 
       # ==========================================
-      # 2. Build Docker Images
+      # 2. Build Docker Images (Using Dynamic SHA)
       # ==========================================
-      # Note: We build with :v3 here to match the k8s-setup.yaml in your repository
       - name: Build Go Backend Image
-        run: docker build -t my-go-backend:v4 ./go-backend
+        run: docker build -t my-go-backend:${{ github.sha }} ./go-backend
 
       - name: Build Next.js Frontend Image
-        run: docker build -t my-next-frontend:v4 ./my-next-frontend
+        run: docker build -t my-next-frontend:${{ github.sha }} ./my-next-frontend
 
       # ==========================================
       # 3. Simulate Kubernetes Deployment
@@ -50,8 +49,13 @@ jobs:
 
       - name: Load Images into Minikube
         run: |
-          minikube image load my-go-backend:v4
-          minikube image load my-next-frontend:v4
+          minikube image load my-go-backend:${{ github.sha }}
+          minikube image load my-next-frontend:${{ github.sha }}
+
+      - name: Inject Dynamic Image Tags into YAML
+        run: |
+          # Uses 'sed' to replace __IMAGE_TAG__ with the unique Git commit hash
+          sed -i "s/__IMAGE_TAG__/${{ github.sha }}/g" k8s-setup.yaml
 
       - name: Deploy to Minikube
         run: kubectl apply -f k8s-setup.yaml
@@ -59,7 +63,9 @@ jobs:
       - name: Verify Deployment Success
         run: |
           kubectl rollout status deployment/go-backend --timeout=120s || (echo "Backend deployment failed! Fetching logs..." && kubectl describe pods -l app=go-backend && kubectl logs -l app=go-backend --tail=100 && exit 1)
-          kubectl rollout status deployment/next-frontend --timeout=300s || (echo "Deployment failed! Fetching K8s logs..." && kubectl describe pods -l app=next-frontend && kubectl logs -l app=next-frontend --tail=100 && exit 1)
+          
+          kubectl rollout status deployment/next-frontend --timeout=300s || (echo "Frontend deployment failed! Fetching K8s logs..." && kubectl describe pods -l app=next-frontend && kubectl logs -l app=next-frontend --tail=100 && exit 1)
+
       # ==========================================
       # 4. Continuous Delivery (CD) to GHCR
       # ==========================================
@@ -75,10 +81,14 @@ jobs:
           # Convert repository name to lowercase (GHCR requirement)
           REPO=$(echo "${{ github.repository }}" | tr '[:upper:]' '[:lower:]')
           
-          # Tag the local v3 images as 'latest' for the registry
-          docker tag my-go-backend:v4 ghcr.io/$REPO/go-backend:latest
-          docker tag my-next-frontend:v4 ghcr.io/$REPO/next-frontend:latest
+          # Tag with the unique commit hash
+          docker tag my-go-backend:${{ github.sha }} ghcr.io/$REPO/go-backend:${{ github.sha }}
+          docker tag my-next-frontend:${{ github.sha }} ghcr.io/$REPO/next-frontend:${{ github.sha }}
           
-          # Push to GitHub Container Registry
-          docker push ghcr.io/$REPO/go-backend:latest
-          docker push ghcr.io/$REPO/next-frontend:latest
+          # Also tag as 'latest' for easy pulling
+          docker tag my-go-backend:${{ github.sha }} ghcr.io/$REPO/go-backend:latest
+          docker tag my-next-frontend:${{ github.sha }} ghcr.io/$REPO/next-frontend:latest
+          
+          # Push everything to GitHub Container Registry
+          docker push ghcr.io/$REPO/go-backend --all-tags
+          docker push ghcr.io/$REPO/next-frontend --all-tags

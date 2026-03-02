@@ -29,7 +29,7 @@ spec:
     spec:
       containers:
       - name: go-backend
-        image: my-go-backend:v4
+        image: my-go-backend:__IMAGE_TAG__
         imagePullPolicy: Never 
         ports:
         - containerPort: 8080
@@ -69,7 +69,7 @@ spec:
     spec:
       containers:
       - name: next-frontend
-        image: my-next-frontend:v4
+        image: my-next-frontend:__IMAGE_TAG__
         imagePullPolicy: Never
         ports:
         - containerPort: 3000
